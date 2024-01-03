@@ -7,10 +7,6 @@ from utils.utils import generate_dataset
 
 def Data_load(timesteps_input, timesteps_output):
     X = pd.read_csv("./data_set/SmallScaleAggregation/V_flow_50.csv", header=None).head(8640).to_numpy(np.float32)
-    NATree = np.load("./data_set/SmallScaleAggregation/TreeMatrix_50.npy").astype(np.float32)
-
-    # X = pd.read_csv("./data_set/RandomUniformity/V_flow_50.csv", header=None).head(8640).to_numpy(np.float32)
-    # NATree = np.load("./data_set/RandomUniformity/TreeMatrix_50.npy").astype(np.float32)
 
     X = np.reshape(X, (X.shape[0], X.shape[1], 1)).transpose((1, 2, 0))
     X, X_mean, X_std = Z_Score(X)
@@ -30,5 +26,5 @@ def Data_load(timesteps_input, timesteps_output):
         'eval_target'], data_set['data_mean'], data_set['data_std'], \
         = train_input, train_target, evaluate_input, evaluate_target, X_mean, X_std
 
-    return NATree, data_set
+    return data_set
 

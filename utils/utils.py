@@ -29,6 +29,9 @@ def Un_Z_Score(matrix, mean, std):
     return (matrix * std) + mean
 
 
+def load_matrix(file_path):
+    return pd.read_csv(file_path, header=None).to_numpy(np.float32)
+
 def get_normalized_adj(W_nodes):
     W_nodes = W_nodes + np.diag(np.ones(W_nodes.shape[0], dtype=np.float32))
     D = np.array(np.sum(W_nodes, axis=1)).reshape((-1,))

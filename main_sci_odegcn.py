@@ -3,14 +3,12 @@ import argparse
 import torch
 import torch.nn as nn
 from utils.data_load import Data_load
-from utils.data_process import Data_Process, load_matrix
 from utils.utils import *
 from methods.train import Train
 from methods.evaluate import Evaluate
 import logger
 
-from model.SCINet import SCINet, InterConvNet
-from model.SCI_ODEGCN import ODEGCN
+from model.sodeicnet import SODEGCN
 import numpy as np
 
 torch.cuda.current_device()
@@ -35,7 +33,6 @@ parser.add_argument('--spatial_channels', type=int, default=32)
 parser.add_argument('--features', type=int, default=1)
 parser.add_argument('--alpha', type=int, default=0.2)
 parser.add_argument('--nheads', type=int, default=3)
-# parser.add_argument('--time_slice', type=list, default=[1, 2, 3])
 parser.add_argument('--time_slice', type=int, default=3)
 
 # 生成邻接矩阵
@@ -50,46 +47,37 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
     torch.manual_seed(7)
-    elogger = logger.Logger('run_log_sci_gcn_timesteps3')
+    elogger = logger.Logger('run_log_sci_sodegnn_timesteps3_my_test')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    NATree, data_set = Data_load(args.timesteps_input, args.timesteps_output)
-    # data_set, all_a, all_p, all_f, all_mean, all_Kmask = Data_Process("./data_set/SmallScaleAggregation/V_flow_50.csv",
-    #                                                                   args.timesteps_input, args.timesteps_output,
-    #                                                                   24 * 30 * 2, 128, 10)
-    W_nodes = load_matrix('data_set/SmallScaleAggregation/distance.csv')
+    data_set = Data_load(args.timesteps_input, args.timesteps_output)
     sp_matrix = load_matrix('./data_set/SmallScaleAggregation/adjmat_50.csv')
     dtw_matrix = generate_adjmatrix(args)
     dtw_matrix = dtw_matrix.astype('float32')
 
-    Ks = 3 #多项式近似个数
-    NATree = np.ones((50, 128))
-    Num_of_nodes = NATree.shape[0]
-    # MaxNodeNumber = NATree.shape[2]
-    # MaxLayerNumber = NATree.shape[1]
+
+    Num_of_nodes = sp_matrix.shape[0]
     input_channels = 1
     channel_sizes = [args.nhid] * args.levels
     kernel_size = args.ksize
 
     # 传感器节点编号
     ids = torch.from_numpy(np.arange(0, Num_of_nodes)).to(device)
-    # all_Kmask = torch.tensor(all_Kmask, dtype=torch.float32).to(device)
     data_set1 = data_set
-    # data_set1['all_Kmask'] = all_Kmask
     data_set1['ids'] = ids
 
     # 归一化邻接矩阵
     A_sp_wave = torch.from_numpy(get_normalized_adj(sp_matrix)).to(device)
     A_se_wave = torch.from_numpy(get_normalized_adj(dtw_matrix)).to(device)
 
-    model = ODEGCN(
+    model = SODEGCN(
         num_nodes=Num_of_nodes,
         num_features=input_channels,
         num_timesteps_input=args.timesteps_input,
         num_timesteps_output=args.timesteps_output,
         A_sp_hat=A_sp_wave,
-        A_se_hat=A_se_wave
+        A_se_hat=A_se_wave,
+        num_levels=3
     )
-
 
     if torch.cuda.is_available():
         model.cuda()
@@ -103,7 +91,6 @@ if __name__ == '__main__':
         # train
         for i in range(0, data_set['train_input'].shape[0], args.batch_size):
 
-            '''importance'''
             model.train()
             optimizer.zero_grad()
 
@@ -127,8 +114,6 @@ if __name__ == '__main__':
             optimizer.step()
             epoch_training_losses.append(loss.detach().cpu().numpy())
         loss_mean = sum(epoch_training_losses)/len(epoch_training_losses)
-        # if i % 50 == 0:
-        #     print("Loss Mean "+str(loss_mean))
 
         # test
         torch.cuda.empty_cache()
@@ -162,7 +147,7 @@ if __name__ == '__main__':
                 loss = L2(pred_index, val_target_index)
                 val_loss.append(loss)
 
-                filePath = "./results/sci_gcn/"
+                filePath = "./results/sci_sode_my_test/"
                 if not os.path.exists(filePath):
                     os.makedirs(filePath)
                 if ((epoch + 1) % 50 == 0) & (epoch != 0) & (epoch > 200):
